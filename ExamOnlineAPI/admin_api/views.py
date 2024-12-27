@@ -5,6 +5,10 @@ from rest_framework import status
 from .models import Question
 from .utils import extract_data_from_pdf  
 import logging
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.contrib.auth import authenticate 
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 logger = logging.getLogger(__name__)
@@ -14,6 +18,8 @@ class UploadPDFView(APIView):
     """
     Upload a list of questions from a PDF file.
     """
+    # authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
@@ -80,10 +86,62 @@ class UploadPDFView(APIView):
             return Response({'error': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class ConfirmQuestionsView(APIView):
+    """
+    Save reviewed questions to the database.
+    """
+    permission_classes = [IsAuthenticated]
+    def post(self, request, *args, **kwargs):
+        try:
+            questions_data = request.data.get('questions')
+            exam_type = request.data.get('exam_type')
+            course_id = request.data.get('course_id')
+
+            if not questions_data:
+                return Response({'error': 'No questions provided for saving.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            created_questions = []
+
+            for question_data in questions_data:
+                try:
+                    existing_question = Question.objects.filter(text=question_data['text'], exam_type=exam_type).first()
+
+                    if existing_question:
+                        print(f"Question already exists: {question_data['text']}")
+                        continue
+
+                    Question.objects.create(
+                        text=question_data['text'],
+                        options=question_data['options'],
+                        correct_option=question_data['correct_option'],
+                        course_id=course_id,
+                        exam_type=exam_type,
+                    )
+                    created_questions.append(question_data['text'])
+
+                except Exception as e:
+                    print(f"Error saving question: {question_data['text']}. Error: {str(e)}")
+                    logger.error(f"Error saving question: {question_data['text']}. Error: {str(e)}")
+                    continue
+
+            response_data = {
+                "message": "Questions saved successfully.",
+                "created_questions": created_questions,
+            }
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {str(e)}")
+            return Response({'error': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
 class QuestionListView(APIView):
     """
     Retrieve list of questions and create a new question.
     """
+    permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
         try:
             questions = Question.objects.all()
@@ -138,6 +196,7 @@ class QuestionDetailView(APIView):
     """
     Retrieve, update, or delete a question instance.
     """
+    permission_classes = [IsAuthenticated]
     def get_object(self, pk):
         try:
             return Question.objects.get(pk=pk)
@@ -204,3 +263,9 @@ class QuestionDetailView(APIView):
         except Exception as e:
             logger.error(f"Error deleting question: {str(e)}")
             return Response({'error': 'Error deleting question'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+
+
