@@ -4,6 +4,10 @@
 
 The **ExamOnline** project allows administrators to upload PDFs containing exam questions, extract the questions, and review them before saving them into the database. It also allow anonymous users to take exams, view questions and submit answers to compare with the correct answers. 
 
+
+**Check out the full API documenation that shows all endpoints, sample requests and responses and other contextual details in the [developer docs](https://jkaylight.gitbook.io/examonline).**
+
+
 ---
 ## Key Features
 
